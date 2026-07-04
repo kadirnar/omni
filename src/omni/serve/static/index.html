@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>omni test console</title>
+<style>
+  :root{
+    --ink:#10141C; --panel:#171D28; --well:#0B0E14; --line:#2A3242;
+    --text:#E8E4D8; --dim:#8A92A3; --live:#FFB454; --user:#6FB7C9;
+    --bad:#E4694F; --ok:#9BC47C;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--ink);color:var(--text);font:14px/1.5 var(--sans);
+       display:flex;flex-direction:column}
+  ::selection{background:var(--live);color:var(--ink)}
+  :focus-visible{outline:2px solid var(--live);outline-offset:2px}
+  .legend{font:600 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  header{display:flex;align-items:center;gap:20px;padding:10px 16px;
+         border-bottom:1px solid var(--line);background:var(--panel)}
+  header .id{display:flex;flex-direction:column;gap:2px;min-width:180px}
+  header .id b{font:700 15px var(--mono);letter-spacing:.06em}
+  header .id span{font:11px var(--mono);color:var(--dim)}
+  .readouts{display:flex;gap:16px;margin-left:auto}
+  .readout{background:var(--well);border:1px solid var(--line);border-radius:6px;
+           padding:6px 12px;min-width:96px;text-align:right}
+  .readout .v{font:700 20px/1.2 var(--mono);font-variant-numeric:tabular-nums}
+  .readout.live .v{color:var(--live)}
+  .readout .u{font-size:10px;color:var(--dim);margin-left:2px}
+  #rtstate{width:9px;height:9px;border-radius:50%;background:var(--dim);align-self:center}
+  #rtstate.on{background:var(--live);box-shadow:0 0 8px var(--live)}
+  #rtstate.bad{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+
+  main{flex:1;display:grid;grid-template-columns:296px 1fr;min-height:0}
+  @media(max-width:760px){main{grid-template-columns:1fr}}
+
+  .rail{border-right:1px solid var(--line);padding:14px;overflow-y:auto;
+        display:flex;flex-direction:column;gap:14px;background:var(--panel)}
+  .group{display:flex;flex-direction:column;gap:6px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tabs button{flex:1;padding:7px 0;background:var(--well);color:var(--dim);
+    border:1px solid var(--line);border-radius:6px;font:700 11px var(--mono);
+    letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+  .tabs button[aria-pressed="true"]{color:var(--ink);background:var(--live);border-color:var(--live)}
+  textarea,select,input[type=number]{width:100%;background:var(--well);color:var(--text);
+    border:1px solid var(--line);border-radius:6px;padding:8px;font:13px var(--mono)}
+  textarea{resize:vertical;min-height:64px}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  .btn{padding:9px 12px;border-radius:6px;border:1px solid var(--line);cursor:pointer;
+       background:var(--well);color:var(--text);font:700 12px var(--mono);
+       letter-spacing:.08em;text-transform:uppercase}
+  .btn.primary{background:var(--live);border-color:var(--live);color:var(--ink)}
+  .btn.rec[aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:var(--ink)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .fileline{display:flex;align-items:center;gap:8px;font:11px var(--mono);color:var(--dim);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .clip{color:var(--user)}
+
+  .stage{display:flex;flex-direction:column;min-height:0}
+  .mono-out{flex:1;overflow-y:auto;padding:16px;font:15px/2 var(--mono);min-height:120px}
+  .mono-out .tag{display:inline-block;border:1px solid var(--line);border-radius:4px;
+    padding:0 6px;margin:0 3px;font-size:11px;letter-spacing:.06em;color:var(--live);
+    background:color-mix(in srgb,var(--live) 8%,transparent);vertical-align:1px}
+  .mono-out .tag.userside{color:var(--user);background:color-mix(in srgb,var(--user) 8%,transparent)}
+  .mono-out .hint{color:var(--dim);font-size:13px}
+
+  .meters{border-top:1px solid var(--line);padding:12px 16px;display:flex;
+          flex-direction:column;gap:10px;background:var(--panel)}
+  .meter-head{display:flex;justify-content:space-between;align-items:baseline}
+  canvas{width:100%;display:block;background:var(--well);border:1px solid var(--line);border-radius:6px}
+  #wave{height:64px}
+  #budget{height:88px}
+
+  .log{height:96px;overflow-y:auto;border-top:1px solid var(--line);padding:8px 16px;
+       font:11px/1.7 var(--mono);color:var(--dim);background:var(--ink)}
+  .log .err{color:var(--bad)}
+  .log .okl{color:var(--ok)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="id">
+    <b>OMNI · TEST CONSOLE</b>
+    <span id="modelinfo">connecting…</span>
+  </div>
+  <div id="rtstate" title="stream state"></div>
+  <div class="readouts">
+    <div class="readout"><div class="legend">prefill</div><div class="v num" id="r-prefill">—</div></div>
+    <div class="readout"><div class="legend">first audio</div><div class="v num" id="r-ttfa">—</div></div>
+    <div class="readout"><div class="legend">ms / frame</div><div class="v num" id="r-mspf">—</div></div>
+    <div class="readout live"><div class="legend">realtime ×</div><div class="v num" id="r-rtf">—</div></div>
+  </div>
+</header>
+
+<main>
+  <aside class="rail">
+    <div class="group"><div class="legend">task</div><div class="tabs" id="tasks"></div></div>
+
+    <div class="group" id="g-text"><label class="legend" for="text">text to speak</label>
+      <textarea id="text" placeholder="type what the model should say">hello from the omni test console</textarea></div>
+
+    <div class="group" id="g-audio"><div class="legend">your speech</div>
+      <div class="row">
+        <button class="btn rec" id="rec-user" aria-pressed="false">● record</button>
+        <button class="btn" id="file-user-btn">load wav</button>
+      </div>
+      <input type="file" id="file-user" accept=".wav,.flac" hidden>
+      <div class="fileline" id="user-state">no input captured</div></div>
+
+    <div class="group"><div class="legend">reference voice · pins the speaker</div>
+      <div class="row">
+        <button class="btn rec" id="rec-voice" aria-pressed="false">● record</button>
+        <button class="btn" id="file-voice-btn">load wav</button>
+      </div>
+      <input type="file" id="file-voice" accept=".wav,.flac" hidden>
+      <div class="fileline" id="voice-state">none — model default voice</div></div>
+
+    <div class="group"><div class="legend">response controls</div>
+      <div class="row">
+        <select id="emotion" aria-label="response emotion"><option value="">emotion: model decides</option></select>
+      </div>
+      <div class="row">
+        <select id="lang" aria-label="response language"><option value="">language: model decides</option></select>
+      </div></div>
+
+    <div class="group"><div class="legend">sampling</div>
+      <div class="row">
+        <input type="number" id="seed" value="0" aria-label="seed" title="seed">
+        <input type="number" id="maxframes" value="100" min="1" aria-label="max frames" title="max frames">
+      </div>
+      <div class="fileline">seed · max frames (80 ms each)</div></div>
+
+    <div class="row">
+      <button class="btn primary" id="go">generate</button>
+      <button class="btn" id="stop" disabled>stop</button>
+    </div>
+  </aside>
+
+  <section class="stage">
+    <div class="mono-out" id="monologue"><span class="hint">The model's inner monologue streams
+      here — control tags render as chips, so you can watch it pick a language and an emotion
+      before it speaks.</span></div>
+    <div class="meters">
+      <div class="meter-head"><span class="legend">assistant audio</span>
+        <span class="legend num" id="frames-label">0 frames</span></div>
+      <canvas id="wave" height="64"></canvas>
+      <div class="meter-head"><span class="legend">frame budget · 80 ms line</span>
+        <span class="legend num" id="budget-label">—</span></div>
+      <canvas id="budget" height="88"></canvas>
+    </div>
+    <div class="log" id="log" aria-live="polite"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const state={info:null,task:"tts",ws:null,running:false,
+  userWav:null,voiceWav:null,      // Float32Array @ SR
+  audioCtx:null,playhead:0,
+  frameTimes:[],wavePeaks:[],frames:0,
+  mic:{stream:null,node:null,ctx:null,buf:[],target:null,duplex:false}};
+const SR=()=>state.info?state.info.sample_rate:24000;
+const BUDGET=()=>state.info?state.info.frame_ms:80;
+
+function log(msg,cls){const el=document.createElement("div");if(cls)el.className=cls;
+  el.textContent=`${new Date().toLocaleTimeString()} ${msg}`;$( "log").append(el);
+  $("log").scrollTop=1e9;}
+
+/* ---------- boot ---------- */
+(async()=>{try{
+  const info=await (await fetch("/api/info")).json();state.info=info;
+  $("modelinfo").textContent=`${info.preset} · ${(info.params/1e6).toFixed(1)}M · ${info.codec} · `+
+    `${info.delay_mode}${info.use_depth?"+depth":""}${info.ckpt?"":" · random-init"}`;
+  for(const e of info.emotions){const o=new Option(`emotion: ${e}`,e);$("emotion").append(o);}
+  for(const l of info.langs){const o=new Option(`language: ${l}`,l);$("lang").append(o);}
+  const tasks=info.duplex?["duplex"]:info.tasks;
+  for(const t of tasks){const b=document.createElement("button");b.textContent=t;
+    b.setAttribute("aria-pressed",String(t===tasks[0]));
+    b.onclick=()=>{state.task=t;document.querySelectorAll("#tasks button")
+      .forEach(x=>x.setAttribute("aria-pressed",String(x===b)));syncRail();};
+    $("tasks").append(b);}
+  state.task=tasks[0];syncRail();
+  log(`console ready — ${info.codec} @ ${info.sample_rate} Hz, budget ${info.frame_ms} ms/frame`,"okl");
+  if(!info.ckpt)log("random-init model: streams wire audio, not speech","err");
+}catch(e){log("cannot reach the server: "+e,"err");}})();
+
+function syncRail(){
+  $("g-text").style.display=state.task==="tts"?"":"none";
+  $("g-audio").style.display=(state.task==="s2s"||state.task==="asr")?"":"none";
+  $("go").textContent=state.task==="duplex"?"start session":"generate";
+}
+
+/* ---------- audio helpers ---------- */
+function ctx(){if(!state.audioCtx)state.audioCtx=new (window.AudioContext||window.webkitAudioContext)({sampleRate:SR()});
+  return state.audioCtx;}
+function playChunk(f32){const c=ctx();const buf=c.createBuffer(1,f32.length,SR());
+  buf.copyToChannel(f32,0);const src=c.createBufferSource();src.buffer=buf;src.connect(c.destination);
+  state.playhead=Math.max(state.playhead,c.currentTime+0.06);
+  src.start(state.playhead);state.playhead+=buf.duration;}
+function pcm16ToF32(ab){const i16=new Int16Array(ab);const f=new Float32Array(i16.length);
+  for(let i=0;i<i16.length;i++)f[i]=i16[i]/32767;return f;}
+function f32ToWavB64(f32,sr){const n=f32.length;const b=new ArrayBuffer(44+n*2);const v=new DataView(b);
+  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+  w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");v.setUint32(16,16,true);
+  v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);
+  v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);
+  w(36,"data");v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.max(-1,Math.min(1,f32[i]))*32767,true);
+  let s="";const u8=new Uint8Array(b);for(let i=0;i<u8.length;i+=0x8000)
+    s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s);}
+
+/* mic capture -> Float32 @ SR (ScriptProcessor keeps this file self-contained) */
+async function micStart(onFrame){const ms=await navigator.mediaDevices.getUserMedia({audio:true});
+  const c=new (window.AudioContext||window.webkitAudioContext)({sampleRate:SR()});
+  const srcNode=c.createMediaStreamSource(ms);const node=c.createScriptProcessor(2048,1,1);
+  node.onaudioprocess=ev=>onFrame(ev.inputBuffer.getChannelData(0).slice());
+  srcNode.connect(node);node.connect(c.destination);
+  state.mic.stream=ms;state.mic.ctx=c;state.mic.node=node;}
+function micStop(){if(state.mic.node)state.mic.node.disconnect();
+  if(state.mic.stream)state.mic.stream.getTracks().forEach(t=>t.stop());
+  if(state.mic.ctx)state.mic.ctx.close();
+  state.mic={...state.mic,stream:null,node:null,ctx:null};}
+
+function wireCapture(recBtn,fileBtn,fileInput,stateEl,key){
+  recBtn.onclick=async()=>{
+    const on=recBtn.getAttribute("aria-pressed")==="true";
+    if(on){recBtn.setAttribute("aria-pressed","false");micStop();
+      const n=state.mic.buf.reduce((a,x)=>a+x.length,0);
+      const f=new Float32Array(n);let o=0;for(const x of state.mic.buf){f.set(x,o);o+=x.length;}
+      state[key]=f;stateEl.innerHTML=`<span class="clip">captured ${(n/SR()).toFixed(1)} s</span>`;
+      return;}
+    state.mic.buf=[];recBtn.setAttribute("aria-pressed","true");
+    stateEl.textContent="recording — press again to stop";
+    try{await micStart(ch=>state.mic.buf.push(ch));}
+    catch(e){recBtn.setAttribute("aria-pressed","false");stateEl.textContent="microphone denied";}
+  };
+  fileBtn.onclick=()=>fileInput.click();
+  fileInput.onchange=async()=>{const file=fileInput.files[0];if(!file)return;
+    const ab=await file.arrayBuffer();
+    const audio=await ctx().decodeAudioData(ab.slice(0));
+    const f=audio.getChannelData(0).slice();state[key]=f;
+    stateEl.innerHTML=`<span class="clip">${file.name} · ${(f.length/SR()).toFixed(1)} s</span>`;};
+}
+wireCapture($("rec-user"),$("file-user-btn"),$("file-user"),$("user-state"),"userWav");
+wireCapture($("rec-voice"),$("file-voice-btn"),$("file-voice"),$("voice-state"),"voiceWav");
+
+/* ---------- meters ---------- */
+function drawBudget(){const cv=$("budget");const dpr=devicePixelRatio||1;
+  cv.width=cv.clientWidth*dpr;const H=cv.height,W=cv.width;const g=cv.getContext("2d");
+  g.clearRect(0,0,W,H);const times=state.frameTimes.slice(-Math.floor(W/(4*dpr)));
+  const budget=BUDGET();const top=Math.max(budget*1.6,...times,1);
+  const yOf=ms=>H-(ms/top)*(H-14*dpr)-2;
+  g.strokeStyle="#3A4356";g.setLineDash([4*dpr,4*dpr]);
+  g.beginPath();g.moveTo(0,yOf(budget));g.lineTo(W,yOf(budget));g.stroke();g.setLineDash([]);
+  g.font=`${10*dpr}px ui-monospace,monospace`;g.fillStyle="#8A92A3";
+  g.fillText(`${budget} ms`,6*dpr,yOf(budget)-4*dpr);
+  times.forEach((ms,i)=>{const x=i*4*dpr;g.fillStyle=ms<=budget?"#FFB454":"#E4694F";
+    g.fillRect(x,yOf(ms),3*dpr,H-yOf(ms)-1);});
+  const over=times.filter(t=>t>budget).length;
+  $("budget-label").textContent=times.length?`${over} / ${times.length} frames over budget`:"—";}
+function drawWave(){const cv=$("wave");const dpr=devicePixelRatio||1;
+  cv.width=cv.clientWidth*dpr;const H=cv.height,W=cv.width;const g=cv.getContext("2d");
+  g.clearRect(0,0,W,H);const peaks=state.wavePeaks.slice(-Math.floor(W/(2*dpr)));
+  g.fillStyle="#FFB454";
+  peaks.forEach((p,i)=>{const h=Math.max(1,p*(H-6));g.fillRect(i*2*dpr,(H-h)/2,1.4*dpr,h);});}
+function pushWave(f32){const step=Math.floor(SR()*0.02);
+  for(let i=0;i<f32.length;i+=step){let m=0;
+    for(let j=i;j<Math.min(i+step,f32.length);j++)m=Math.max(m,Math.abs(f32[j]));
+    state.wavePeaks.push(m);}drawWave();}
+
+/* ---------- monologue ---------- */
+function pushToken(t){const box=$("monologue");
+  if(box.firstChild&&box.firstChild.className==="hint")box.textContent="";
+  if(t.special){const c=document.createElement("span");
+    c.className="tag"+(t.special==="user"?" userside":"");c.textContent=t.special;box.append(c);}
+  else if(t.piece)box.append(document.createTextNode(t.piece));
+  box.scrollTop=1e9;}
+
+/* ---------- run control ---------- */
+function setRunning(on,bad){state.running=on;$("go").disabled=on;$("stop").disabled=!on;
+  const dot=$("rtstate");dot.className=on?(bad?"bad":"on"):"";}
+function resetRun(){state.frameTimes=[];state.wavePeaks=[];state.frames=0;state.playhead=0;
+  $("monologue").textContent="";["r-prefill","r-ttfa","r-mspf","r-rtf"].forEach(i=>$(i).textContent="—");
+  $("frames-label").textContent="0 frames";drawBudget();drawWave();}
+function applyMetrics(m){if(m.ttfa_ms!=null)$("r-ttfa").textContent=Math.round(m.ttfa_ms);
+  if(m.ms_per_frame!=null)$("r-mspf").textContent=m.ms_per_frame.toFixed(1);
+  if(m.rtf!=null){$("r-rtf").textContent=m.rtf.toFixed(1);
+    $("rtstate").className=state.running?(m.rtf>=1?"on":"bad"):"";}
+  if(m.last_ms!=null){state.frameTimes.push(m.last_ms);drawBudget();}}
+
+$("stop").onclick=()=>{if(state.ws)state.ws.send(JSON.stringify({type:"stop"}));
+  if(state.mic.duplex){micStop();state.mic.duplex=false;}};
+
+$("go").onclick=()=>{state.task==="duplex"?runDuplex():runGenerate();};
+
+function runGenerate(){
+  if(state.task!=="tts"&&!state.userWav){log("record or load your speech first","err");return;}
+  resetRun();setRunning(true);ctx().resume();
+  const req={task:state.task,seed:+$("seed").value,max_frames:+$("maxframes").value};
+  if(state.task==="tts")req.text=$("text").value;
+  else req.audio_wav_b64=f32ToWavB64(state.userWav,SR());
+  if(state.voiceWav)req.voice_wav_b64=f32ToWavB64(state.voiceWav,SR());
+  if($("emotion").value)req.emotion=$("emotion").value;
+  if($("lang").value)req.lang=$("lang").value;
+  const ws=new WebSocket(`ws://${location.host}/ws/generate`);state.ws=ws;
+  ws.binaryType="arraybuffer";
+  ws.onopen=()=>{ws.send(JSON.stringify(req));log(`generate: ${state.task} (seed ${req.seed})`);};
+  let lastFrameT=null;
+  ws.onmessage=ev=>{
+    if(ev.data instanceof ArrayBuffer){const f32=pcm16ToF32(ev.data);playChunk(f32);pushWave(f32);
+      state.frames++;$( "frames-label").textContent=`${state.frames} chunks`;
+      const now=performance.now();
+      if(lastFrameT!=null){state.frameTimes.push(now-lastFrameT);drawBudget();}
+      lastFrameT=now;return;}
+    const m=JSON.parse(ev.data);
+    if(m.type==="text")pushToken(m);
+    else if(m.type==="status"){$("r-prefill").textContent=Math.round(m.prefill_ms);
+      log(`prefill ${m.prefill_ms} ms over ${m.prompt_frames} prompt frames`);}
+    else if(m.type==="metrics")applyMetrics(m);
+    else if(m.type==="done"){applyMetrics(m);
+      log(`done: ${m.frames} frames in ${m.wall_s}s`+(m.stopped?" (stopped)":""),"okl");
+      setRunning(false);}
+    else if(m.type==="error"){log(m.message,"err");setRunning(false);}};
+  ws.onclose=()=>setRunning(false);
+  ws.onerror=()=>{log("websocket error","err");setRunning(false);};}
+
+function runDuplex(){
+  resetRun();setRunning(true);ctx().resume();
+  const req={seed:+$("seed").value};
+  if(state.voiceWav)req.voice_wav_b64=f32ToWavB64(state.voiceWav,SR());
+  const ws=new WebSocket(`ws://${location.host}/ws/duplex`);state.ws=ws;
+  ws.binaryType="arraybuffer";
+  const spf=state.info.samples_per_frame;let acc=new Float32Array(0);
+  ws.onopen=async()=>{ws.send(JSON.stringify(req));
+    try{await micStart(chunk=>{
+      const merged=new Float32Array(acc.length+chunk.length);
+      merged.set(acc);merged.set(chunk,acc.length);acc=merged;
+      while(acc.length>=spf&&ws.readyState===1){
+        const frame=acc.subarray(0,spf);acc=acc.slice(spf);
+        const i16=new Int16Array(spf);
+        for(let i=0;i<spf;i++)i16[i]=Math.max(-1,Math.min(1,frame[i]))*32767;
+        ws.send(i16.buffer);}});
+      state.mic.duplex=true;log("duplex session live — speak; the assistant answers on the same clock","okl");
+    }catch(e){log("microphone denied","err");ws.close();}};
+  ws.onmessage=ev=>{
+    if(ev.data instanceof ArrayBuffer){const f32=pcm16ToF32(ev.data);playChunk(f32);pushWave(f32);
+      state.frames++;$( "frames-label").textContent=`${state.frames} chunks`;return;}
+    const m=JSON.parse(ev.data);
+    if(m.type==="text")pushToken(m);
+    else if(m.type==="metrics")applyMetrics(m);
+    else if(m.type==="error"){log(m.message,"err");setRunning(false);}};
+  ws.onclose=()=>{micStop();state.mic.duplex=false;setRunning(false);log("duplex session closed");};}
+
+addEventListener("resize",()=>{drawBudget();drawWave();});
+</script>
+</body>
+</html>

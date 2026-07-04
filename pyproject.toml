@@ -1,0 +1,36 @@
+[project]
+name = "omni"
+version = "0.1.0"
+description = "From-scratch speech-to-speech omni LLM: one decoder-only transformer over parallel text + Mimi codec token streams"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.6",
+    "numpy",
+    "transformers>=4.45",
+    "tokenizers>=0.20",
+    "datasets>=3.0",
+    "safetensors",
+    "soundfile",
+    "pyyaml",
+    "tqdm",
+    "huggingface_hub",
+]
+
+[project.optional-dependencies]
+tts = []  # TTS backends install from their upstream repos (docs/DESIGN_V3_AUDIO.md §3)
+quant = ["torchao"]
+lora = ["peft>=0.10"]  # backbone LoRA (model.lora_rank > 0, DESIGN_V6 §5)
+serve = ["fastapi>=0.110", "uvicorn>=0.30"]
+wandb = ["wandb>=0.17"]
+dev = ["pytest"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omni"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

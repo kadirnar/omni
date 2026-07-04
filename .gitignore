@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+uv.lock
+
+# Data & artifacts (large)
+data/
+!data/README.md
+checkpoints/
+runs/
+wandb/
+*.wav
+*.flac
+*.mp3
+*.parquet
+*.safetensors
+*.pt
+*.ckpt
+
+# HF caches
+.cache/
+hf_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

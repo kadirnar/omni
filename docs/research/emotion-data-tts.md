@@ -1,0 +1,63 @@
+# Emotion Data for a Speech-to-Speech LM (verified 2026-07-02)
+
+## (a) Emotion-controllable open TTS — verified
+
+**Fun-CosyVoice3-0.5B-2512** (Apache-2.0, Dec 2025): instruct mode = natural-language prefix ending in `<|endofprompt|>`, e.g. `You are a helpful assistant. Please speak very happily.<|endofprompt|>` (repo `cosyvoice/utils/common.py` enumerates happy/sad/angry emotion instructs, loud/soft/fast/slow, 17 Chinese dialects, role-play; freeform instructions also work — paper claims 100+ instruction types). 9 languages (zh/en/ja/ko/de/es/fr/it/ru) + 18 dialects; pinyin/CMU phoneme control; bi-streaming. Emotion set via instruct is open-ended but only coarse categories are demonstrated; strongest in Chinese. VERIFY result: yes, instruct emotion control confirmed, but coarse.
+
+**stepfun-ai/Step-Audio-EditX** (3B, Apache-2.0, Nov 2025): iterative emotion/style EDITING of existing audio via bracket tags `[Angry]`, `[Whispering]` etc. 14 emotions (Angry, Happy, Sad, Excited, Fearful, Surprised, Disgusted, Confused, Empathetic, Embarrassed, Depressed, Admiring, Cold, Humorous), 30+ styles (incl. Comforting, Warm, Gentle, Serious), paralinguistics (breathing, laughter, sigh, hesitation, cough). Languages: Mandarin, English, Sichuanese, Cantonese, Japanese, Korean. 83.4% emotion-edit accuracy (zh, 3 iterations). Uniquely valuable: converts any neutral TTS output (e.g. VibeVoice) into emotional versions with identical content/speaker — perfect minimal pairs.
+
+**SoulX-Podcast-1.7B** (Apache-2.0, Oct 2025): paralinguistic tags only (laughter, sighs), zh/en + Sichuanese/Henanese/Cantonese; no explicit emotion control.
+
+**VibeVoice-1.5B** (MIT): NO explicit emotion control; En/Zh only.
+
+**IndexTTS-2** (Jun 2025): best-in-class disentangled emotion control — emotion reference audio, 8-dim emotion vector (happy, angry, sad, afraid, disgusted, melancholic, surprised, calm) with `emo_alpha`, or free-text via Qwen3; BUT weights are under the bilibili "INDEX_MODEL_LICENSE": commercial use requires prior written authorization, and it forbids using outputs to improve other AI models except non-commercial ones. Exclude from our pipeline (or eval-only).
+
+**Others**: Chatterbox Multilingual (Resemble AI, MIT, Sep 2025): 23 languages, zero-shot cloning + emotion **exaggeration/intensity parameter** + watermarking — best license-clean multilingual option. Maya1 (3B, Apache-2.0, Nov 2025): English, 20+ inline emotion tags (`<laugh>`, `<cry>`, `<gasp>`, angry, whisper...), voice design by description. Higgs Audio v2 (Boson AI, Apache-2.0, Jul 2025): expressive, ~20 emotion labels. Orpheus-3B (Apache-2.0): tags `<laugh> <chuckle> <sigh> <cough> <sniffle> <groan> <yawn> <gasp>`, 7-language multilingual family. EmotiVoice (Apache-2.0, 2023): style-prompt field, en/zh, 2000+ voices — dated quality.
+
+## (b) SER corpora + licenses
+
+- **CREMA-D**: 7,442 clips, 91 actors, 6 emotions × 4 intensity, English — **ODbL 1.0 + DBCL: commercial OK**.
+- **MSP-Podcast**: 400+ h naturalistic English podcast speech, categorical+VAD labels; free academic license (institution signs FDP form); lab FAQ says commercial products allowed since source podcasts are permissive — but NOT HF-downloadable.
+- **JVNV**: Japanese, 4 speakers, 6 emotions + nonverbal vocalizations, 3.94 h — **CC BY-SA 4.0 (commercial OK)**; scripts were ChatGPT-generated (methodological precedent).
+- **RAVDESS**: CC BY-NC-SA 4.0 (paid commercial license available). **ESD**: 10 zh + 10 en speakers × 350 parallel utts × 5 emotions — research-only, emailed license. **IEMOCAP**: USC non-commercial license. **MELD**: 13k utterances from *Friends* — GPL-3 code, underlying TV audio copyright = unusable commercially. **EmoV-DB**: 4 en speakers, 5 styles (incl. amusement/sleepiness), CMU-Arctic text. **M3ED**: 24,449 zh utterances from 56 TV series — no clear license, TV-derived. **EmoBox** (MIT toolkit): recipes/metadata for 32 SER datasets, 14 languages, 262k utts / 294 h — no audio redistribution.
+- 2025: **EmoNet-Voice** (LAION+Intel): ~5,000 h synthetic, 11 voices, 4 languages, 40 fine-grained emotions, expert-verified benchmark, open license; companion **Empathic-Insight-Voice** SER models.
+
+## (c) Emotion-annotated dialogue text
+
+- **allenai/soda**: 1.49M dialogues, **CC BY-4.0**, carries ATOMIC relation fields incl. `xReact` (emotional reaction) + narrative — best commercially-clean seed.
+- DailyDialog (7-class per-utterance emotion): CC BY-NC-SA 4.0. EmpatheticDialogues (32 emotion situations): CC BY-NC. ESConv (support strategies): CC BY-NC 4.0. EmoWOZ: CC BY-NC 4.0. All NC → eval/inspiration only.
+
+## (d) Synthetic emotional speech precedent
+
+- **EMOVA** (CVPR 2025): omni-modal LLM; due to scarcity of style-rich real data, used TTS to synthesize speech diverse in gender/pitch/emotion, filtered by **emotion2vec confidence**; LLM emits an explicit style label token controlling output — directly matches our inner-monologue design.
+- **EmoVoice** (ACM MM 2025): SOTA emotional TTS trained **only on synthetic data** (CosyVoice pretraining + GPT-4o-audio emotional fine-tuning; 40 h EmoVoice-DB released).
+- **Empathic-Insight-Voice** (2025): SER trained on ~5,000 h synthetic emotional speech, validated against expert human annotation.
+- **Caution — "On the Emotion Understanding of Synthesized Speech" (2026, arXiv 2603.16483)**: SER models fail to generalize between real and synthesized speech (representation mismatch; models exploit shortcuts). Implication: synthetic audio suffices for the *expression/generation* side, but *perception* training must include real speech, and SER-judge QC scores on synthetic audio need calibration.
+
+
+## KEY FACTS
+- Fun-CosyVoice3-0.5B-2512 is Apache-2.0, Dec 2025, covers 9 languages (zh/en/ja/ko/de/es/fr/it/ru) + 18 Chinese dialects; instruct = natural-language prefix ending in <|endofprompt|> [https://huggingface.co/FunAudioLLM/Fun-CosyVoice3-0.5B-2512]
+- CosyVoice repo common.py instruct list includes 'You are a helpful assistant. Please speak very happily/sadly/angrily.<|endofprompt|>' plus loud/soft/fast/slow and 17 dialect instructions; freeform instructions also accepted [https://github.com/FunAudioLLM/CosyVoice/blob/main/cosyvoice/utils/common.py]
+- Step-Audio-EditX (3B, Apache-2.0, Nov 2025) edits emotion/style/paralinguistics of existing audio via bracket tags; 14 emotions incl. Angry/Empathetic, 30+ styles incl. Comforting/Warm, paralinguistics incl. sigh/laughter; Mandarin/English/Sichuanese/Cantonese/Japanese/Korean; 83.4% zh emotion-edit accuracy after 3 iterations [https://huggingface.co/stepfun-ai/Step-Audio-EditX]
+- SoulX-Podcast-1.7B (Apache-2.0, Oct 2025) supports paralinguistic tags (laughter, sighs) in zh/en + Sichuanese/Henanese/Cantonese but no explicit emotion control [https://huggingface.co/Soul-AILab/SoulX-Podcast-1.7B]
+- VibeVoice-1.5B (MIT) has no explicit emotion/style control; English and Chinese only [https://huggingface.co/microsoft/VibeVoice-1.5B]
+- IndexTTS-2 offers emotion reference audio, an 8-float emotion vector (happy, angry, sad, afraid, disgusted, melancholic, surprised, calm) with emo_alpha, and free-text emotion descriptions [https://github.com/index-tts/index-tts]
+- IndexTTS-2 weights are under the bilibili INDEX_MODEL_LICENSE: commercial use requires prior written authorization and outputs may not be used to improve other (commercial) AI models [https://github.com/index-tts/index-tts/issues/228]
+- Chatterbox Multilingual (Resemble AI, MIT, Sep 2025) does zero-shot cloning in 23 languages with an emotion exaggeration/intensity parameter and PerTh watermarking [https://huggingface.co/ResembleAI/chatterbox]
+- Maya1 (maya-research/maya1, 3B, Apache-2.0, Nov 2025) supports 20+ inline emotion tags (laugh, cry, gasp, angry, whisper, sigh...) and voice design via text description, English, 24 kHz streaming [https://huggingface.co/maya-research/maya1]
+- Orpheus-3B (Apache-2.0) supports tags <laugh> <chuckle> <sigh> <cough> <sniffle> <groan> <yawn> <gasp>; multilingual research release covers 7 language pairs [https://github.com/canopyai/Orpheus-TTS]
+- CREMA-D: 7,442 English clips, 91 actors, 6 emotions at 4 intensity levels, released under ODbL 1.0 + Database Contents License — commercial use permitted [https://github.com/CheyneyComputerScience/CREMA-D]
+- MSP-Podcast is 400+ hours of naturalistic English emotional speech; free academic license via signed institutional agreement; lab states commercial products are possible because source podcasts have permissive licenses; not HF-hosted [https://www.lab-msp.com/MSP/MSP-Podcast.html]
+- ESD (10 Mandarin + 10 English speakers, 350 parallel utterances, 5 emotions) is research-only and requires an emailed license — not commercially usable [https://github.com/HLTSingapore/Emotional-Speech-Data]
+- RAVDESS is CC BY-NC-SA 4.0 with purchasable commercial licenses; IEMOCAP is USC non-commercial; MELD derives from Friends TV audio (copyright-encumbered, GPL-3 code) [https://zenodo.org/records/1188976]
+- JVNV (Japanese, 4 speakers, 6 emotions, 3.94 h, 1,615 utterances with nonverbal vocalizations, ChatGPT-generated scripts) is CC BY-SA 4.0 — commercially usable [https://sites.google.com/site/shinnosuketakamichi/research-topics/jvnv_corpus]
+- EmoBox (MIT toolkit) provides recipes/metadata for 32 SER datasets in 14 languages (262k utterances, 294.4 h) but does not redistribute audio [https://github.com/emo-box/EmoBox]
+- allenai/soda is CC BY-4.0, 1.49M dialogues, and includes ATOMIC-derived fields including xReact (emotional reaction) plus narrative context [https://huggingface.co/datasets/allenai/soda]
+- DailyDialog is CC BY-NC-SA 4.0; EmpatheticDialogues is CC BY-NC; ESConv is CC BY-NC 4.0; EmoWOZ is CC BY-NC 4.0 — all non-commercial [https://huggingface.co/datasets/li2017dailydialog/daily_dialog]
+- EmoNet-Voice (LAION/Intel, 2025) is a ~5,000-hour open-license synthetic emotional speech corpus (11 voices, 4 languages, 40 emotions) with expert-verified benchmark; Empathic-Insight-Voice SER models are trained on it [https://arxiv.org/abs/2506.09827]
+- EMOVA (CVPR 2025) handled scarcity of emotional speech by TTS-synthesizing style-diverse samples filtered by emotion2vec confidence, and trains the LLM to emit an explicit style label controlling speech output [https://arxiv.org/pdf/2409.18042]
+- EmoVoice (ACM MM 2025) achieved SOTA emotional TTS using only synthetic training data (CosyVoice pretraining + GPT-4o-audio emotional fine-tuning); released 40-h EmoVoice-DB with free-text emotion descriptions [https://arxiv.org/abs/2504.12867]
+- A 2026 study found SER models fail to generalize to synthesized speech due to representation mismatch and shortcut learning — synthetic-only perception training will not reliably transfer to real voices [https://arxiv.org/abs/2603.16483]
+
+## RECOMMENDATION
+Adopt a two-sided pipeline. **Scripting (text):** seed from SODA (CC BY-4.0; use xReact emotion fields) and regenerate with a permissively-licensed LLM into (user-emotion, assistant-strategy) dialogues — angry/frustrated/anxious/sad/excited user turn + empathetic/calm assistant reply — emitting per-turn emotion labels that map onto our free special-token ids (<emo:angry> perception tag in the inner monologue after user audio; <style:calm> before assistant audio; EMOVA precedent). Avoid NC datasets (DailyDialog/ED/ESConv) except for eval. **Audio:** user side — Step-Audio-EditX `[Angry]` editing of VibeVoice/CosyVoice3 output (gives minimal pairs: same text/voice, ±emotion) plus CosyVoice3 instruct ("Please speak very angrily.<|endofprompt|>") across thousands of zero-shot voice prompts; multilingual coverage via Chatterbox Multilingual (MIT, 23 langs, exaggeration param) and Maya1 (En). Assistant side — CosyVoice3/Step-Audio-EditX Comforting/Warm/Empathetic styles on a small set of consistent assistant voices. All chosen models are Apache-2.0/MIT; explicitly exclude IndexTTS-2 (bilibili license bans training other models). **Scale:** ~1,500–2,500 h emotional pairs (≈500k exchanges), mirroring EmoNet-Voice-Big's 5k h and EmoVoice's synthetic-only success. **QC:** ensemble SER judge (emotion2vec+ + Empathic-Insight-Voice) keep-top-confidence, Whisper WER round-trip, speaker-similarity filter; calibrate judges on CREMA-D since SER is unreliable on synthetic audio (arXiv 2603.16483). **Perception transfer (critical):** mix real speech — CREMA-D (ODbL, commercial-OK), JVNV (CC BY-SA), MSP-Podcast (sign license; largest naturalistic set), and SER-pseudo-labeled Emilia-YODAS — formatted as asr+emotion-tag grids so perception is learned from real voices, not only TTS.
